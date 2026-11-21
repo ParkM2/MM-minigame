@@ -9,24 +9,18 @@ public static class ClickGuard
     static int lastPressFrame = -1;
     static int blockUntilFrame = -1; // 이 프레임 이하에서 시작된 클릭은 무시 (일시정지 열고 닫을 때 사용)
 
+    static bool PressedThisFrame => Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame;
+
     // 매 프레임 호출해서 마지막으로 마우스를 누른 프레임을 기록
     public static void Track()
     {
-        if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
-            lastPressFrame = Time.frameCount;
-    }
-
-    static int CurrentPressFrame()
-    {
-        if (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)
-            return Time.frameCount;
-        return lastPressFrame;
+        if (PressedThisFrame) lastPressFrame = Time.frameCount;
     }
 
     // 마지막 클릭(누름)이 sinceFrame 이후에 시작됐는지. 버튼 onClick(손 뗄 때 호출) 검사용
     public static bool PressedAfter(int sinceFrame)
     {
-        int pf = CurrentPressFrame();
+        int pf = PressedThisFrame ? Time.frameCount : lastPressFrame;
         return pf > sinceFrame && pf > blockUntilFrame;
     }
 

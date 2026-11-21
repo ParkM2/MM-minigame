@@ -90,7 +90,6 @@ public class TopicWheel : MonoBehaviour
         hrt.anchoredPosition = disc.anchoredPosition;
         var himg = hub.AddComponent<Image>();
         himg.sprite = MakeHubSprite(128);
-        himg.color = Color.white;
         himg.raycastTarget = false;
 
         // 12시 방향 핀 모양 바늘 (고정)
@@ -102,7 +101,6 @@ public class TopicWheel : MonoBehaviour
         prt.anchoredPosition = new Vector2(0, -20 + size * 0.5f - size * 0.07f);
         var pimg = pointer.AddComponent<Image>();
         pimg.sprite = MakePinSprite(96, 128);
-        pimg.color = Color.white;
         pimg.raycastTarget = false;
     }
 
@@ -144,84 +142,77 @@ public class TopicWheel : MonoBehaviour
     }
 
     // ---------- 절차적 스프라이트 ----------
+    // 픽셀마다 색을 계산해 스프라이트를 만든다
+    static Sprite PixelSprite(int w, int h, Vector2 pivot, Func<int, int, Color> colorAt)
+    {
+        var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
+        var px = new Color32[w * h];
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+                px[y * w + x] = colorAt(x, y);
+        tex.SetPixels32(px); tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, w, h), pivot);
+    }
+
     // 크림색 테두리 + 동심원 결이 있는 같은 넓이의 칸
     static Sprite MakeWheelSprite(int n, int size)
     {
-        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
-        var px = new Color32[size * size];
         float c = size / 2f, r = c - 2f, rimW = size * 0.06f, inner = r - rimW;
         float slice = 360f / n;
         Color rimCol = new Color(0.95f, 0.90f, 0.80f);
         Color edgeCol = new Color(0.55f, 0.40f, 0.25f);
-        for (int y = 0; y < size; y++)
-            for (int x = 0; x < size; x++)
+        return PixelSprite(size, size, new Vector2(0.5f, 0.5f), (x, y) =>
+        {
+            float dx = x - c + 0.5f, dy = y - c + 0.5f;
+            float d = Mathf.Sqrt(dx * dx + dy * dy);
+            if (d > r) return Color.clear;
+            if (d > inner)
             {
-                float dx = x - c + 0.5f, dy = y - c + 0.5f;
-                float d = Mathf.Sqrt(dx * dx + dy * dy);
-                Color col;
-                if (d > r) col = new Color(0, 0, 0, 0);
-                else if (d > inner)
-                {
-                    float t = (d - inner) / rimW;
-                    col = rimCol * (1f - 0.25f * Mathf.Abs(t - 0.5f) * 2f); col.a = 1f;
-                }
-                else if (d > inner - 3f) col = edgeCol;
-                else
-                {
-                    // 12시에서 시계 방향 각도 → 칸 번호 (모든 칸 같은 각도)
-                    float ang = (90f - Mathf.Atan2(dy, dx) * Mathf.Rad2Deg + 360f) % 360f;
-                    int idx = Mathf.Min(n - 1, (int)(ang / slice));
-                    float ring = 1f + 0.07f * Mathf.Sin(d / inner * Mathf.PI * 2f * 5f);
-                    float shade = 1f - 0.12f * (d / inner) * (d / inner);
-                    col = SliceColors[idx % SliceColors.Length] * (ring * shade); col.a = 1f;
-                }
-                px[y * size + x] = col;
+                float t = (d - inner) / rimW;
+                Color rim = rimCol * (1f - 0.25f * Mathf.Abs(t - 0.5f) * 2f); rim.a = 1f;
+                return rim;
             }
-        tex.SetPixels32(px); tex.Apply();
-        return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+            if (d > inner - 3f) return edgeCol;
+
+            // 12시에서 시계 방향 각도 → 칸 번호 (모든 칸 같은 각도)
+            float ang = (90f - Mathf.Atan2(dy, dx) * Mathf.Rad2Deg + 360f) % 360f;
+            int idx = Mathf.Min(n - 1, (int)(ang / slice));
+            float ring = 1f + 0.07f * Mathf.Sin(d / inner * Mathf.PI * 2f * 5f);
+            float shade = 1f - 0.12f * (d / inner) * (d / inner);
+            Color col = SliceColors[idx % SliceColors.Length] * (ring * shade); col.a = 1f;
+            return col;
+        });
     }
 
     // 갈색 가운데 축
     static Sprite MakeHubSprite(int size)
     {
-        var tex = new Texture2D(size, size, TextureFormat.RGBA32, false);
-        var px = new Color32[size * size];
         float c = size / 2f, r = c - 1f;
-        for (int y = 0; y < size; y++)
-            for (int x = 0; x < size; x++)
-            {
-                float dx = x - c + 0.5f, dy = y - c + 0.5f;
-                float d = Mathf.Sqrt(dx * dx + dy * dy);
-                Color col = d > r ? new Color(0, 0, 0, 0)
-                    : d > r * 0.7f ? new Color(0.45f, 0.28f, 0.15f)
-                    : d > r * 0.4f ? new Color(0.75f, 0.60f, 0.42f)
-                    : new Color(0.30f, 0.18f, 0.10f);
-                px[y * size + x] = col;
-            }
-        tex.SetPixels32(px); tex.Apply();
-        return Sprite.Create(tex, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f));
+        return PixelSprite(size, size, new Vector2(0.5f, 0.5f), (x, y) =>
+        {
+            float dx = x - c + 0.5f, dy = y - c + 0.5f;
+            float d = Mathf.Sqrt(dx * dx + dy * dy);
+            if (d > r) return Color.clear;
+            if (d > r * 0.7f) return new Color(0.45f, 0.28f, 0.15f);
+            if (d > r * 0.4f) return new Color(0.75f, 0.60f, 0.42f);
+            return new Color(0.30f, 0.18f, 0.10f);
+        });
     }
 
     // 아래를 가리키는 빨간 핀
     static Sprite MakePinSprite(int w, int h)
     {
-        var tex = new Texture2D(w, h, TextureFormat.RGBA32, false);
-        var px = new Color32[w * h];
         float cx = w / 2f, cy = h - w / 2f, r = w / 2f - 4f;
-        for (int y = 0; y < h; y++)
-            for (int x = 0; x < w; x++)
-            {
-                float dx = x - cx + 0.5f, dy = y - cy + 0.5f;
-                float d = Mathf.Sqrt(dx * dx + dy * dy);
-                float half = Mathf.Clamp01((y - 4f) / (cy - 4f)) * r * 0.85f;
-                bool inside = d <= r || (y < cy && Mathf.Abs(dx) <= half);
-                Color col = !inside ? new Color(0, 0, 0, 0)
-                    : d <= r * 0.28f ? new Color(0.95f, 0.85f, 0.70f)
-                    : d <= r * 0.42f ? new Color(0.55f, 0.05f, 0.05f)
-                    : new Color(0.85f, 0.12f, 0.12f);
-                px[y * w + x] = col;
-            }
-        tex.SetPixels32(px); tex.Apply();
-        return Sprite.Create(tex, new Rect(0, 0, w, h), new Vector2(0.5f, 0f));
+        return PixelSprite(w, h, new Vector2(0.5f, 0f), (x, y) =>
+        {
+            float dx = x - cx + 0.5f, dy = y - cy + 0.5f;
+            float d = Mathf.Sqrt(dx * dx + dy * dy);
+            float half = Mathf.Clamp01((y - 4f) / (cy - 4f)) * r * 0.85f;
+            bool inside = d <= r || (y < cy && Mathf.Abs(dx) <= half);
+            if (!inside) return Color.clear;
+            if (d <= r * 0.28f) return new Color(0.95f, 0.85f, 0.70f);
+            if (d <= r * 0.42f) return new Color(0.55f, 0.05f, 0.05f);
+            return new Color(0.85f, 0.12f, 0.12f);
+        });
     }
 }

@@ -8,7 +8,7 @@ public static class StartSceneBuilder
     [MenuItem("Tools/Build Start Screen UI")]
     public static void BuildUI()
     {
-        var scene = UnityEditor.SceneManagement.EditorSceneManager.GetActiveScene();
+        var scene = EditorSceneManager.GetActiveScene();
 
         // Remove old Canvas/EventSystem
         foreach (var root in scene.GetRootGameObjects())
@@ -74,7 +74,7 @@ public static class StartSceneBuilder
         Debug.Log("StartScreen UI built! Canvas children: " + ct.childCount);
     }
 
-    static GameObject MakeImg(Transform par, string nm, float ax0, float ay0, float ax1, float ay1, float px, float py, float sw, float sh, float ox, float oy, float r, float g, float b, float a)
+    static GameObject NewRect(Transform par, string nm, float ax0, float ay0, float ax1, float ay1, float px, float py, float sw, float sh, float ox, float oy)
     {
         var go = new GameObject(nm);
         go.transform.SetParent(par, false);
@@ -84,20 +84,19 @@ public static class StartSceneBuilder
         rt.pivot = new Vector2(px, py);
         rt.sizeDelta = new Vector2(sw, sh);
         rt.anchoredPosition = new Vector2(ox, oy);
+        return go;
+    }
+
+    static GameObject MakeImg(Transform par, string nm, float ax0, float ay0, float ax1, float ay1, float px, float py, float sw, float sh, float ox, float oy, float r, float g, float b, float a)
+    {
+        var go = NewRect(par, nm, ax0, ay0, ax1, ay1, px, py, sw, sh, ox, oy);
         go.AddComponent<Image>().color = new Color(r, g, b, a);
         return go;
     }
 
     static GameObject MakeTxt(Transform par, string nm, string text, float ax0, float ay0, float ax1, float ay1, float px, float py, float sw, float sh, float ox, float oy, float r, float g, float b, float a, int fs, bool bold)
     {
-        var go = new GameObject(nm);
-        go.transform.SetParent(par, false);
-        var rt = go.AddComponent<RectTransform>();
-        rt.anchorMin = new Vector2(ax0, ay0);
-        rt.anchorMax = new Vector2(ax1, ay1);
-        rt.pivot = new Vector2(px, py);
-        rt.sizeDelta = new Vector2(sw, sh);
-        rt.anchoredPosition = new Vector2(ox, oy);
+        var go = NewRect(par, nm, ax0, ay0, ax1, ay1, px, py, sw, sh, ox, oy);
         var t = go.AddComponent<Text>();
         t.text = text;
         t.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");

@@ -45,15 +45,8 @@ public class PauseMenu : MonoBehaviour
         IsPaused = paused;
         Time.timeScale = paused ? 0f : 1f;     // 타이머·연출 정지
         ClickGuard.BlockCurrentPress();        // 팝업 버튼 클릭이 게임 화면 클릭으로 이어지지 않게
-        if (paused)
-        {
-            if (root == null) Build();
-            root.SetActive(true);
-        }
-        else if (root != null)
-        {
-            root.SetActive(false);
-        }
+        if (paused && root == null) Build();
+        if (root != null) root.SetActive(paused);
     }
 
     void OnContinue() { SetPaused(false); }
@@ -82,8 +75,7 @@ public class PauseMenu : MonoBehaviour
 
         // 화면 전체 어둡게 + 뒤쪽 클릭 차단
         var dim = NewRect("Dim", root.transform);
-        dim.anchorMin = Vector2.zero; dim.anchorMax = Vector2.one;
-        dim.offsetMin = Vector2.zero; dim.offsetMax = Vector2.zero;
+        Stretch(dim);
         dim.gameObject.AddComponent<Image>().color = DimColor;
 
         var panel = NewRect("Panel", root.transform);
@@ -145,8 +137,15 @@ public class PauseMenu : MonoBehaviour
         btn.colors = colors;
         btn.onClick.AddListener(onClick);
 
-        var t = NewText("Label", rt, font, label, 28);
-        t.rectTransform.anchorMin = Vector2.zero; t.rectTransform.anchorMax = Vector2.one;
-        t.rectTransform.offsetMin = Vector2.zero; t.rectTransform.offsetMax = Vector2.zero;
+        Stretch(NewText("Label", rt, font, label, 28).rectTransform);
+    }
+
+    // 부모 영역을 꽉 채우도록
+    static void Stretch(RectTransform rt)
+    {
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
     }
 }

@@ -12,29 +12,22 @@ public class StartScreenManager : MonoBehaviour
         WireButtons();
     }
 
-    // 이전 씬에서 누른 채로 넘어온 클릭으로 카드가 눌리지 않도록, 이 화면에서 새로 누른 클릭만 인정
-    void OnCard(string sceneName)
-    {
-        if (!ClickGuard.PressedAfter(sceneStartFrame)) return;
-        SceneManager.LoadScene(sceneName);
-    }
-
     void WireButtons()
     {
-        var g1 = GameObject.Find("Game1Card");
-        if (g1 != null)
-            g1.GetComponent<Button>()?.onClick.AddListener(() => OnCard("SiaSpotDifferenceScene"));
+        Wire("Game1Card", () => SceneManager.LoadScene("SiaSpotDifferenceScene"));
+        Wire("Game2Card", () => SceneManager.LoadScene("GameScene2"));
+        Wire("ExitBtn", QuitGame);
+    }
 
-        var g2 = GameObject.Find("Game2Card");
-        if (g2 != null)
-            g2.GetComponent<Button>()?.onClick.AddListener(() => OnCard("GameScene2"));
-
-        var ex = GameObject.Find("ExitBtn");
-        if (ex != null)
-            ex.GetComponent<Button>()?.onClick.AddListener(() =>
-            {
-                if (ClickGuard.PressedAfter(sceneStartFrame)) QuitGame();
-            });
+    // 이전 씬에서 누른 채로 넘어온 클릭으로 버튼이 눌리지 않도록, 이 화면에서 새로 누른 클릭만 인정
+    void Wire(string objectName, System.Action action)
+    {
+        var button = GameObject.Find(objectName)?.GetComponent<Button>();
+        if (button == null) return;
+        button.onClick.AddListener(() =>
+        {
+            if (ClickGuard.PressedAfter(sceneStartFrame)) action();
+        });
     }
 
     void QuitGame()

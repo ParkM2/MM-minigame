@@ -35,7 +35,6 @@ public class QuizGameManager : MonoBehaviour
     private int stateEnterFrame;     // 현재 상태가 시작된 프레임 (이전 클릭이 넘어오지 않게 하는 기준)
     private int currentQuestion = 0;
     private int correctCount = 0;
-    private bool isAnswered = false;
 
     // 보기 피드백 색상 (정답 공개 / 내가 고른 오답 / 나머지 흐리게)
     private static readonly Color CorrectColor = new Color(0.55f, 1f, 0.45f, 1f);
@@ -52,19 +51,15 @@ public class QuizGameManager : MonoBehaviour
 
     void Start()
     {
-        // 버튼 onClick 런타임 연결
+        // 버튼 onClick 연결 + 배경 투명 (transition None으로 Button이 색상을 덮어쓰지 않도록)
         for (int i = 0; i < optionButtons.Length; i++)
         {
             int idx = i + 1;
-            optionButtons[i].onClick.RemoveAllListeners();
-            optionButtons[i].onClick.AddListener(() => OnOptionSelected(idx));
-        }
-
-        // 버튼 배경 투명 (transition None으로 Button이 색상을 덮어쓰지 않도록)
-        foreach (var btn in optionButtons)
-        {
+            var btn = optionButtons[i];
+            btn.onClick.RemoveAllListeners();
+            btn.onClick.AddListener(() => OnOptionSelected(idx));
             btn.transition = Selectable.Transition.None;
-            btn.GetComponent<Image>().color = new Color(0, 0, 0, 0);
+            btn.GetComponent<Image>().color = Color.clear;
         }
 
         // 보기 텍스트 기본 색/스타일 저장 (문제마다 복원)
@@ -171,7 +166,6 @@ public class QuizGameManager : MonoBehaviour
     // ---------- 문제 ----------
     void ShowQuestion()
     {
-        isAnswered = false;
         var q = questions[currentQuestion];
         questionText.text = "\n" + q.question;
         for (int i = 0; i < optionTexts.Length; i++)
@@ -181,21 +175,18 @@ public class QuizGameManager : MonoBehaviour
             optionTexts[i].fontStyle = defaultOptionStyles[i];
         }
         optionPanel.SetActive(true);
-        foreach (var btn in optionButtons)
-            btn.interactable = true;
+        SetOptionsInteractable(true);
         lucidImage.sprite = normalSprite;
         SetState(GameState.Question);
     }
 
     public void OnOptionSelected(int optionIndex) // 1-indexed
     {
-        if (state != GameState.Question || isAnswered || PauseMenu.IsPaused) return;
+        if (state != GameState.Question || PauseMenu.IsPaused) return;
         // 문제가 뜨기 전에 누른 클릭(이전 화면 넘김 클릭)으로 보기가 선택되지 않게
         if (!ClickGuard.PressedAfter(stateEnterFrame)) return;
-        isAnswered = true;
 
-        foreach (var btn in optionButtons)
-            btn.interactable = false;
+        SetOptionsInteractable(false);
 
         var q = questions[currentQuestion];
         ShowOptionFeedback(optionIndex, q.answer);
@@ -223,21 +214,20 @@ public class QuizGameManager : MonoBehaviour
         for (int i = 0; i < optionTexts.Length; i++)
         {
             int idx = i + 1;
-            if (idx == answer)
-            {
-                optionTexts[i].color = CorrectColor;
-                optionTexts[i].fontStyle = FontStyle.Bold;
-            }
-            else if (idx == selected)
-            {
-                optionTexts[i].color = WrongColor;
-                optionTexts[i].fontStyle = FontStyle.Bold;
-            }
-            else
+            if (idx != answer && idx != selected)
             {
                 optionTexts[i].color = DimColor;
+                continue;
             }
+            optionTexts[i].color = idx == answer ? CorrectColor : WrongColor;
+            optionTexts[i].fontStyle = FontStyle.Bold;
         }
+    }
+
+    void SetOptionsInteractable(bool on)
+    {
+        foreach (var btn in optionButtons)
+            btn.interactable = on;
     }
 
     void ShowResult()

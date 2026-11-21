@@ -50,11 +50,10 @@ public static class QuizSceneBuilder
         var ct = cvGO.transform;
 
         // Background
-        var bgGO = MakeImg(ct, "Background", 0, 0, 1, 1, 0.5f, 0.5f, 0, 0, 0, 0);
-        bgGO.GetComponent<Image>().sprite = bgSprite;
-        bgGO.GetComponent<Image>().color = Color.white;
-        bgGO.GetComponent<Image>().type = Image.Type.Simple;
-        bgGO.GetComponent<Image>().preserveAspect = false;
+        var bgImg = MakeImg(ct, "Background", 0, 0, 1, 1, 0.5f, 0.5f, 0, 0, 0, 0).GetComponent<Image>();
+        bgImg.sprite = bgSprite;
+        bgImg.type = Image.Type.Simple;
+        bgImg.preserveAspect = false;
 
         // Semi-transparent overlay for readability
         var overlay = MakeImg(ct, "Overlay", 0, 0, 1, 1, 0.5f, 0.5f, 0, 0, 0, 0);
@@ -62,9 +61,9 @@ public static class QuizSceneBuilder
 
         // Lucid character (left-center)
         var lucidGO = MakeImg(ct, "LucidImage", 0.22f, 0.08f, 0.22f, 0.08f, 0.5f, 0f, 340, 420, 0, 0);
-        lucidGO.GetComponent<Image>().sprite = normalSprite;
-        lucidGO.GetComponent<Image>().color = Color.white;
-        lucidGO.GetComponent<Image>().preserveAspect = true;
+        var lucidImg = lucidGO.GetComponent<Image>();
+        lucidImg.sprite = normalSprite;
+        lucidImg.preserveAspect = true;
 
         // Question bubble (right-center area)
         var bubbleBg = MakeImg(ct, "QuestionBubble", 0.55f, 0.45f, 0.55f, 0.45f, 0.5f, 0.5f, 560, 220, 0, 0);
@@ -80,7 +79,7 @@ public static class QuizSceneBuilder
         qTextGO.GetComponent<Text>().alignment = TextAnchor.MiddleCenter;
 
         // Click to advance label
-        var clickHint = MakeTxt(ct, "ClickHint", "▼ 화면을 클릭하세요",
+        MakeTxt(ct, "ClickHint", "▼ 화면을 클릭하세요",
             0.5f, 0.02f, 0.5f, 0.02f, 0.5f, 0f, 360, 36, 0, 0,
             new Color(1f, 1f, 0.6f, 0.85f), 20, false, mapleFont);
 
@@ -91,12 +90,6 @@ public static class QuizSceneBuilder
         // 4 option buttons
         Button[] optBtns = new Button[4];
         Text[] optTxts = new Text[4];
-        Color[] btnColors = {
-            new Color(0.9f, 0.3f, 0.3f),
-            new Color(0.25f, 0.7f, 0.3f),
-            new Color(0.3f, 0.5f, 0.9f),
-            new Color(0.9f, 0.8f, 0.2f)
-        };
         string[] numLabels = { "①", "②", "③", "④" };
         float[] xPositions = { -412f, -137f, 137f, 412f };
 
@@ -107,7 +100,7 @@ public static class QuizSceneBuilder
             btnGO.GetComponent<Image>().color = new Color(0, 0, 0, 0);
 
             // Number label
-            var numGO = MakeTxt(btnGO.transform, "Num", numLabels[i],
+            MakeTxt(btnGO.transform, "Num", numLabels[i],
                 0.5f, 1f, 0.5f, 1f, 0.5f, 1f, 255, 35, 0, -4,
                 Color.white, 22, true, mapleFont);
 
@@ -140,28 +133,19 @@ public static class QuizSceneBuilder
         mgr.normalSprite = normalSprite;
         mgr.happySprite  = happySprite;
         mgr.sadSprite    = sadSprite;
-        mgr.lucidImage   = lucidGO.GetComponent<Image>();
+        mgr.lucidImage   = lucidImg;
         mgr.questionText = qTextGO.GetComponent<Text>();
         mgr.optionPanel  = optPanel;
         mgr.optionButtons = optBtns;
         mgr.optionTexts  = optTxts;
-
-        // Wire button onClick events
-        int captureIdx = 0;
-        for (int i = 0; i < 4; i++)
-        {
-            int idx = i + 1; // 1-indexed
-            optBtns[i].onClick.AddListener(() => mgr.OnOptionSelected(idx));
-        }
-        // Wire click catcher
-        clickCatcher.GetComponent<Button>().onClick.AddListener(() => mgr.OnScreenClick());
+        // 버튼 클릭 연결은 씬에 저장되지 않으므로 QuizGameManager.Start/Update에서 처리한다
 
         EditorSceneManager.MarkSceneDirty(scene);
         EditorSceneManager.SaveScene(scene);
         Debug.Log("QuizScene built successfully!");
     }
 
-    static GameObject MakeImg(Transform par, string nm,
+    static GameObject NewRect(Transform par, string nm,
         float ax0, float ay0, float ax1, float ay1, float px, float py,
         float sw, float sh, float ox, float oy)
     {
@@ -173,6 +157,14 @@ public static class QuizSceneBuilder
         rt.pivot     = new Vector2(px, py);
         rt.sizeDelta = new Vector2(sw, sh);
         rt.anchoredPosition = new Vector2(ox, oy);
+        return go;
+    }
+
+    static GameObject MakeImg(Transform par, string nm,
+        float ax0, float ay0, float ax1, float ay1, float px, float py,
+        float sw, float sh, float ox, float oy)
+    {
+        var go = NewRect(par, nm, ax0, ay0, ax1, ay1, px, py, sw, sh, ox, oy);
         go.AddComponent<Image>().color = Color.white;
         return go;
     }
@@ -182,14 +174,7 @@ public static class QuizSceneBuilder
         float sw, float sh, float ox, float oy,
         Color col, int fs, bool bold, Font font)
     {
-        var go = new GameObject(nm);
-        go.transform.SetParent(par, false);
-        var rt = go.AddComponent<RectTransform>();
-        rt.anchorMin = new Vector2(ax0, ay0);
-        rt.anchorMax = new Vector2(ax1, ay1);
-        rt.pivot     = new Vector2(px, py);
-        rt.sizeDelta = new Vector2(sw, sh);
-        rt.anchoredPosition = new Vector2(ox, oy);
+        var go = NewRect(par, nm, ax0, ay0, ax1, ay1, px, py, sw, sh, ox, oy);
         var t = go.AddComponent<Text>();
         t.text      = text;
         t.font      = font != null ? font : Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");

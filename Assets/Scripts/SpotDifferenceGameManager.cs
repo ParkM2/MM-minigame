@@ -78,24 +78,33 @@ public class SpotDifferenceGameManager : MonoBehaviour
         stateEnterFrame = Time.frameCount;
     }
 
+    // 배경을 투명하게 하고 색 전환 없이 클릭만 받는 버튼으로 설정
+    static void SetupInvisibleButton(Button button, UnityEngine.Events.UnityAction onClick)
+    {
+        button.onClick.RemoveAllListeners();
+        button.onClick.AddListener(onClick);
+        button.transition = Selectable.Transition.None;
+        SetButtonLook(button, null, Color.clear);
+    }
+
+    static void SetButtonLook(Button button, Sprite sprite, Color color)
+    {
+        var img = button.GetComponent<Image>();
+        if (img == null) return;
+        img.sprite = sprite;
+        img.color = color;
+    }
+
     void Start()
     {
         // 배경 클릭 버튼 (오답)
-        bgClickButton.onClick.RemoveAllListeners();
-        bgClickButton.onClick.AddListener(OnWrongClick);
-        bgClickButton.transition = Selectable.Transition.None;
-        var bgImg = bgClickButton.GetComponent<Image>();
-        if (bgImg != null) bgImg.color = new Color(0, 0, 0, 0);
+        SetupInvisibleButton(bgClickButton, OnWrongClick);
 
         // 정답 버튼
         for (int i = 0; i < answerButtons.Length; i++)
         {
             int idx = i;
-            answerButtons[i].onClick.RemoveAllListeners();
-            answerButtons[i].onClick.AddListener(() => OnAnswerClick(idx));
-            answerButtons[i].transition = Selectable.Transition.None;
-            var img = answerButtons[i].GetComponent<Image>();
-            if (img != null) img.color = new Color(0, 0, 0, 0);
+            SetupInvisibleButton(answerButtons[i], () => OnAnswerClick(idx));
         }
 
         // LeftImage 중심 앵커 런타임 계산
@@ -133,8 +142,7 @@ public class SpotDifferenceGameManager : MonoBehaviour
 
         if (state == GameState.Playing)
         {
-            timer -= Time.deltaTime;
-            timer = Mathf.Max(0f, timer);
+            timer = Mathf.Max(0f, timer - Time.deltaTime);
             UpdateTimerUI();
 
             if (timer <= 0f)
@@ -189,24 +197,18 @@ public class SpotDifferenceGameManager : MonoBehaviour
         StageData data = stages[stageIndex];
         for (int i = 0; i < answerButtons.Length; i++)
         {
-            if (i < data.areas.Length)
-            {
-                RectTransform rt = answerButtons[i].GetComponent<RectTransform>();
-                rt.anchorMin = _answerAnchor;
-                rt.anchorMax = _answerAnchor;
-                rt.pivot = new Vector2(0.5f, 0.5f);
-                rt.anchoredPosition = data.areas[i].anchoredPosition;
-                rt.sizeDelta = data.areas[i].size;
-                answerButtons[i].gameObject.SetActive(true);
-                answerButtons[i].interactable = true;
-                var img = answerButtons[i].GetComponent<Image>();
-                if (img != null) { img.sprite = null; img.color = new Color(0, 0, 0, 0); }
-            }
-            else
-            {
-                // 이번 스테이지에서 사용하지 않는 버튼 비활성화
-                answerButtons[i].gameObject.SetActive(false);
-            }
+            bool used = i < data.areas.Length; // 이번 스테이지에서 쓰지 않는 버튼은 숨김
+            answerButtons[i].gameObject.SetActive(used);
+            if (!used) continue;
+
+            RectTransform rt = answerButtons[i].GetComponent<RectTransform>();
+            rt.anchorMin = _answerAnchor;
+            rt.anchorMax = _answerAnchor;
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = data.areas[i].anchoredPosition;
+            rt.sizeDelta = data.areas[i].size;
+            answerButtons[i].interactable = true;
+            SetButtonLook(answerButtons[i], null, Color.clear);
         }
 
         bgClickButton.interactable = true;
@@ -233,21 +235,17 @@ public class SpotDifferenceGameManager : MonoBehaviour
 
     void OnAnswerClick(int index)
     {
-        if (!IsValidBoardClick()) return;
-        if (answerFound[index]) return;
+        if (!IsValidBoardClick() || answerFound[index]) return;
 
         answerFound[index] = true;
         foundPoints++;
         answerButtons[index].interactable = false;
 
-        var img = answerButtons[index].GetComponent<Image>();
-        if (img != null) { img.sprite = _circleSprite; img.color = FoundColor; }
+        SetButtonLook(answerButtons[index], _circleSprite, FoundColor);
         UpdateTimerUI();
 
         if (foundPoints >= stages[currentStage].requiredPoints)
-        {
             OnRoundSuccess();
-        }
     }
 
     // 빈 원형(테두리만) 스프라이트 생성
@@ -270,9 +268,7 @@ public class SpotDifferenceGameManager : MonoBehaviour
                 float dy = y - center + 0.5f;
                 float dist = Mathf.Sqrt(dx * dx + dy * dy);
                 bool inRing = dist <= outerR && dist >= innerR;
-                pixels[y * size + x] = inRing
-                    ? new Color32(255, 255, 255, 255)
-                    : new Color32(0, 0, 0, 0);
+                pixels[y * size + x] = inRing ? new Color32(255, 255, 255, 255) : new Color32(0, 0, 0, 0);
             }
         }
 
@@ -297,25 +293,24 @@ public class SpotDifferenceGameManager : MonoBehaviour
     {
         int remain = Mathf.CeilToInt(timer);
         timer = 0f;
-        timerText.gameObject.SetActive(false);
-        bgClickButton.interactable = false;
-
         successCount++;
-        siaImage.sprite = happySprite;
-        dialogueText.text = $"축하합니다!\n{remain}초 남기고 다 찾았어요";
-        SetState(GameState.RoundEnd);
+        EndRound(happySprite, $"축하합니다!\n{remain}초 남기고 다 찾았어요");
     }
 
     void OnTimerExpired()
     {
-        timerText.gameObject.SetActive(false);
-        bgClickButton.interactable = false;
         foreach (var btn in answerButtons)
             btn.interactable = false;
         RevealMissedAnswers();
+        EndRound(sadSprite, "힘내세요!\n노란 원이 못 찾은 곳이에요");
+    }
 
-        siaImage.sprite = sadSprite;
-        dialogueText.text = "힘내세요!\n노란 원이 못 찾은 곳이에요";
+    void EndRound(Sprite face, string message)
+    {
+        timerText.gameObject.SetActive(false);
+        bgClickButton.interactable = false;
+        siaImage.sprite = face;
+        dialogueText.text = message;
         SetState(GameState.RoundEnd);
     }
 
@@ -344,9 +339,7 @@ public class SpotDifferenceGameManager : MonoBehaviour
         int count = Mathf.Min(stages[currentStage].areas.Length, answerButtons.Length);
         for (int i = 0; i < count; i++)
         {
-            if (answerFound[i]) continue;
-            var img = answerButtons[i].GetComponent<Image>();
-            if (img != null) { img.sprite = _circleSprite; img.color = MissedColor; }
+            if (!answerFound[i]) SetButtonLook(answerButtons[i], _circleSprite, MissedColor);
         }
     }
 
